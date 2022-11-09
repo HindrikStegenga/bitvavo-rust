@@ -7,3 +7,9 @@ description = "Bitvavo API bindings"
 license = "MIT"
 homepage = "https://github.com/HindrikStegenga/bitvavo-rust"
 repository = "https://github.com/HindrikStegenga/bitvavo-rust"
+
+[dependencies]
+tokio = { version = "1", features = ["full"] }
+reqwest = "0.11"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = { version = "1.0" }
