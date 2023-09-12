@@ -72,10 +72,31 @@ impl BitvavoClient {
             .unwrap();
         Ok(serde_json::from_slice::<Vec<Asset>>(&bytes)?)
     }
+
+    pub async fn get_orderbook_snapshot(
+        &self,
+        market: &str,
+        depth: Option<u32>,
+    ) -> Result<OrderbookSnapshot, HttpApiError> {
+        let url = if let Some(depth) = depth {
+            reqwest::Url::parse_with_params(
+                &((ENDPOINT_BASE_URL.to_string() + market).to_string() + "/book"),
+                [("depth", depth.to_string())],
+            )
+            .map_err(|_| HttpApiError::InvalidURL)?
+        } else {
+            reqwest::Url::parse(&((ENDPOINT_BASE_URL.to_string() + market).to_string() + "/book"))
+                .map_err(|_| HttpApiError::InvalidURL)?
+        };
+        let bytes = self.client.get(url).send().await?.bytes().await.unwrap();
+        Ok(serde_json::from_slice::<OrderbookSnapshot>(&bytes)?)
+    }
 }
 
 #[cfg(test)]
 mod test {
+    use std::time::Duration;
+
     use super::*;
 
     #[tokio::test]
@@ -96,5 +117,14 @@ mod test {
         let client = BitvavoClient::new();
         client.get_markets().await.unwrap();
         client.get_market("BTC-EUR").await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn test_orderbook_snapshot() {
+        let client = BitvavoClient::new();
+        client
+            .get_orderbook_snapshot("BTC-EUR", None)
+            .await
+            .unwrap();
     }
 }

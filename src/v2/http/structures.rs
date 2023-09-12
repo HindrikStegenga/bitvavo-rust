@@ -62,3 +62,11 @@ pub struct Market {
     #[serde(rename = "orderTypes")]
     pub order_types: Vec<String>,
 }
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct OrderbookSnapshot {
+    pub market: String,
+    pub nonce: u64,
+    pub bids: Vec<(String, String)>,
+    pub asks: Vec<(String, String)>,
+}
