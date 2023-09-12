@@ -1,33 +1,100 @@
-use std::{
-    error::Error,
-    fmt::{Debug, Display},
-};
+mod errors;
+mod structures;
+mod urls;
 
-pub mod time;
+use errors::*;
+use structures::*;
+use urls::*;
 
-#[derive(Debug)]
-pub enum HttpApiError {
-    Reqwest(reqwest::Error),
-    Deserialize(serde_json::Error),
+pub struct BitvavoClient {
+    client: reqwest::Client,
 }
 
-impl Display for HttpApiError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            HttpApiError::Reqwest(err) => write!(f, "{}", err),
-            HttpApiError::Deserialize(err) => write!(f, "{}", err),
+impl Default for BitvavoClient {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl BitvavoClient {
+    pub fn new() -> Self {
+        Self {
+            client: reqwest::Client::new(),
         }
     }
-}
-impl Error for HttpApiError {}
 
-impl From<reqwest::Error> for HttpApiError {
-    fn from(e: reqwest::Error) -> Self {
-        HttpApiError::Reqwest(e)
+    pub async fn get_time(&self) -> std::result::Result<u64, HttpApiError> {
+        let body = self
+            .client
+            .get(ENDPOINT_GET_TIME_URL)
+            .send()
+            .await?
+            .bytes()
+            .await
+            .unwrap();
+        Ok(serde_json::from_slice::<Time>(&body)?.time)
+    }
+
+    pub async fn get_market(&self, market: &str) -> Result<Market, HttpApiError> {
+        let url = reqwest::Url::parse_with_params(ENDPOINT_GET_MARKETS_URL, [("market", market)])
+            .map_err(|_| HttpApiError::InvalidURL)?;
+        let bytes = self.client.get(url).send().await?.bytes().await.unwrap();
+        Ok(serde_json::from_slice::<Market>(&bytes)?)
+    }
+
+    pub async fn get_markets(&self) -> Result<Vec<Market>, HttpApiError> {
+        let bytes = self
+            .client
+            .get(ENDPOINT_GET_MARKETS_URL)
+            .send()
+            .await?
+            .bytes()
+            .await
+            .unwrap();
+        Ok(serde_json::from_slice::<Vec<Market>>(&bytes)?)
+    }
+
+    pub async fn get_asset(&self, symbol: &str) -> Result<Asset, HttpApiError> {
+        let url = reqwest::Url::parse_with_params(ENDPOINT_GET_ASSETS_URL, [("symbol", symbol)])
+            .map_err(|_| HttpApiError::InvalidURL)?;
+        let bytes = self.client.get(url).send().await?.bytes().await.unwrap();
+        Ok(serde_json::from_slice::<Asset>(&bytes)?)
+    }
+
+    pub async fn get_assets(&self) -> Result<Vec<Asset>, HttpApiError> {
+        let bytes = self
+            .client
+            .get(ENDPOINT_GET_ASSETS_URL)
+            .send()
+            .await?
+            .bytes()
+            .await
+            .unwrap();
+        Ok(serde_json::from_slice::<Vec<Asset>>(&bytes)?)
     }
 }
-impl From<serde_json::Error> for HttpApiError {
-    fn from(e: serde_json::Error) -> Self {
-        HttpApiError::Deserialize(e)
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[tokio::test]
+    async fn test_get_time() {
+        let client = BitvavoClient::new();
+        client.get_time().await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn test_get_assets() {
+        let client = BitvavoClient::new();
+        client.get_assets().await.unwrap();
+        client.get_asset("BTC").await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn test_get_markets() {
+        let client = BitvavoClient::new();
+        client.get_markets().await.unwrap();
+        client.get_market("BTC-EUR").await.unwrap();
     }
 }
